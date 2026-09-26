@@ -1,0 +1,129 @@
+{
+    "approval": {
+        "approvedAt": "2026-09-26T16:14:59Z",
+        "contentSha256": "5f9ee3f5ddd41a600a4eb15675d3ff15edee91e74a6f6784e2ff0fa8f279f120",
+        "redistributionApproved": true,
+        "reviewedBy": "Bedriox Team"
+    },
+    "artifacts": [
+        {
+            "name": "biome_definitions",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/biome_definitions.json",
+            "sha256": "382567ef2541900aa4008479e3c626e4359f59b7cb2813a5abd4f7650d2bc5ed",
+            "size": 66581
+        },
+        {
+            "name": "block_item_mappings",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/block_item_mappings.json",
+            "sha256": "a39ea07343172f1247870760d5232938fb981dd20e908def419a13d7b4aaadc7",
+            "size": 290507
+        },
+        {
+            "name": "block_palette",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/block_palette.nbt",
+            "sha256": "ed1ed7521e3df68b40c695c6160e459f610671bbe93e4eb6c7abc277b2210a29",
+            "size": 271783
+        },
+        {
+            "name": "block_properties",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/block_properties.json",
+            "sha256": "4b4222d403cb70e6a5807b58b26c38a13e3f51d8fa3c75e99dfa4f20bd422f07",
+            "size": 39752755
+        },
+        {
+            "name": "change_report",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/change-report.json",
+            "sha256": "2bd0c68aac0464f2216f5212ffa3d07c2315c0c9ca25f9eba0fb69e5f48cf4a6",
+            "size": 2198
+        },
+        {
+            "name": "creative_contents",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/creative_contents.dat",
+            "sha256": "fe208ccd5c3681c547daa99318b49db044a36e7ff9e7bebfc1a6bb0a1c543335",
+            "size": 56414
+        },
+        {
+            "name": "creative_inventory",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/creative_inventory.json",
+            "sha256": "2524adbc0fcff69717aaa2f19a29146523cf8f7381327632706c346836ac02c8",
+            "size": 926067
+        },
+        {
+            "name": "data_driven_blocks",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/data_driven_blocks.nbt",
+            "sha256": "8b17dc5a972bf1c468dbc71dba04f552acaf81d214496aecaae3d99d588ff56f",
+            "size": 3707
+        },
+        {
+            "name": "entity_identifiers",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/entity_identifiers.dat",
+            "sha256": "152a67ea826b1dba79040a61a91d256a04bc558eff9275341223b8d28505b782",
+            "size": 8907
+        },
+        {
+            "name": "entity_properties",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/entity_properties.nbt",
+            "sha256": "deaea2da88874f62223c7be2e1a7d2030136a78fb37ed667562b3e5f5c028cb1",
+            "size": 708
+        },
+        {
+            "name": "item_components",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/item_components.nbt",
+            "sha256": "1e9c7acca9a8161b10e0b4120e915e3a0c492af9bacc417e4aea00a382006892",
+            "size": 17383
+        },
+        {
+            "name": "jigsaw_structures",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/jigsaw_structures.nbt",
+            "sha256": "fba99b1dd34ef57414f70d34f08a9ea05001c462e16f8af81f02aa0b81861efc",
+            "size": 6298
+        },
+        {
+            "name": "legacy_block_ids",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/legacy_block_ids.json",
+            "sha256": "c5c3ef4c8dc9025111733f2ddf8722c86ce4e27ab81835f4c86476f705e66540",
+            "size": 59919
+        },
+        {
+            "name": "legacy_item_ids",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/legacy_item_ids.json",
+            "sha256": "bda79e93178e45354e986baec56c363cfce8281d5a6bd0f708661654eff71eee",
+            "size": 48197
+        },
+        {
+            "name": "recipes",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/recipes.json",
+            "sha256": "0a70b42086a446aa91490ec3649b29074e27bfc0e6fab2d6a6d9576859d6aa09",
+            "size": 3966560
+        },
+        {
+            "name": "runtime_item_states",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/runtime_item_states.json",
+            "sha256": "4bdcebebc807d6659e543c7a13e8bd59fd19509ac5bb5fbd233cf267c697c002",
+            "size": 274394
+        },
+        {
+            "name": "voxel_shapes",
+            "path": "artifacts/bedrock-1.26.52-protocol-2193/voxel_shapes.json",
+            "sha256": "3b05ea39c0b583b749f8bd32eaa9398b6897efefbd3e8c334b2003b0646a172f",
+            "size": 8210259
+        }
+    ],
+    "edition": "bedrock",
+    "gameVersion": "1.26.52",
+    "generator": {
+        "name": "Bedriox DataBuilder",
+        "revision": "08090269e360547d9026072d61ac2eea4da8e7cf",
+        "version": "0.1.0"
+    },
+    "protocolVersion": 2193,
+    "qualifiedClientVersion": "1.26.52",
+    "schema": 2,
+    "source": {
+        "commit": "6a47607b2c1e65ec38032c5b2e473e0da9a5e80c",
+        "license": "LicenseRef-Minecraft-EULA-Interoperability-Review",
+        "retrievedAt": "2026-09-26T04:56:46Z",
+        "rightsHolder": "Microsoft Corporation / Mojang Studios",
+        "uri": "https://www.minecraft.net/en-us/download/server/bedrock#bds-sha256=19c88569af2e4b7d984e999055a31cbcb0799dacf8bbbf7371eda42f5772a443"
+    }
+}
