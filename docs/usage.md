@@ -56,6 +56,25 @@ $workbenchRecipes = $recipes->recipesForIdentifier('minecraft:WorkBench_recipeId
 
 `ShapedRecipe` exposes its rectangular shape and symbol map. `ShapelessRecipe` exposes ordered source ingredients and whether the result preserves user data. Exact-item ingredients are cross-checked against `ItemNetworkRegistry`; item-tag ingredients remain canonical typed tag references for the gameplay matcher. Outputs expose identifier, count, damage, legacy identity, and optional validated little-endian NBT. UUID-only transformations use `ComplexRecipe`, while smithing records remain typed and explicitly classified for their later workstation implementation.
 
+Processing consumers should use the immutable indexes rather than scan the full recipe list:
+
+```php
+use Bedriox\Data\RecipeStation;
+
+$furnaceRecipes = $recipes->recipesForStation(RecipeStation::FURNACE);
+$beefSmoking = $recipes->recipesForExactInput(RecipeStation::SMOKER, 'minecraft:beef');
+$taggedFurnaceRecipes = $recipes->recipesForInputTag(RecipeStation::FURNACE, 'minecraft:logs');
+$smithingTransforms = $recipes->smithingTransformRecipes();
+$smithingTrims = $recipes->smithingTrimRecipes();
+
+$containerMix = $recipes->containerMix('minecraft:potion', 'minecraft:gunpowder');
+$potionMix = $recipes->potionMix('minecraft:potion', 4, 'minecraft:breeze_rod', 0);
+```
+
+Station, exact-item, and item-tag indexes preserve admitted source order. A recipe is returned once per lookup even when it references the same exact item or tag more than once. Missing valid keys return an empty list or `null`; malformed non-canonical lookup keys are rejected.
+
+The active artifact supplies furnace, blast-furnace, smoker, campfire, soul-campfire, stonecutter, cartography, smithing-transform, and smithing-trim recipe records. It does not supply fuel durations, cook times, experience awards, enchantment rules, loom patterns, composting probabilities, or cauldron transformations. These version-sensitive semantics are intentionally not inferred or backfilled by this package. They require separately admitted source-neutral data before Data can expose them as runtime registries.
+
 After a schema-2 creative dataset is approved, admitted, and deliberately selected as the active manifest, the same unversioned view exposes:
 
 ```php

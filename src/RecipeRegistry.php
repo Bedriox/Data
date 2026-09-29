@@ -39,6 +39,27 @@ final readonly class RecipeRegistry
     /** @var array<string, ComplexRecipe> */
     private array $byUuid;
 
+    /** @var array<string, list<RecipeDefinition>> */
+    private array $byStation;
+
+    /** @var array<string, array<string, list<RecipeDefinition>>> */
+    private array $byStationAndExactInput;
+
+    /** @var array<string, array<string, list<RecipeDefinition>>> */
+    private array $byStationAndInputTag;
+
+    /** @var list<SmithingTransformRecipe> */
+    private array $smithingTransformRecipes;
+
+    /** @var list<SmithingTrimRecipe> */
+    private array $smithingTrimRecipes;
+
+    /** @var array<string, ContainerMix> */
+    private array $containerMixesByInputAndReagent;
+
+    /** @var array<string, PotionMix> */
+    private array $potionMixesByInputAndReagent;
+
     /** @var list<ContainerMix> */
     private array $containerMixes;
 
@@ -53,8 +74,15 @@ final readonly class RecipeRegistry
      * @param list<RecipeDefinition> $deprecatedRecipes
      * @param array<string, list<RecipeDefinition>> $byIdentifier
      * @param array<string, ComplexRecipe> $byUuid
+     * @param array<string, list<RecipeDefinition>> $byStation
+     * @param array<string, array<string, list<RecipeDefinition>>> $byStationAndExactInput
+     * @param array<string, array<string, list<RecipeDefinition>>> $byStationAndInputTag
+     * @param list<SmithingTransformRecipe> $smithingTransformRecipes
+     * @param list<SmithingTrimRecipe> $smithingTrimRecipes
      * @param list<ContainerMix> $containerMixes
      * @param list<PotionMix> $potionMixes
+     * @param array<string, ContainerMix> $containerMixesByInputAndReagent
+     * @param array<string, PotionMix> $potionMixesByInputAndReagent
      */
     private function __construct(
         array $recipes,
@@ -64,8 +92,15 @@ final readonly class RecipeRegistry
         array $deprecatedRecipes,
         array $byIdentifier,
         array $byUuid,
+        array $byStation,
+        array $byStationAndExactInput,
+        array $byStationAndInputTag,
+        array $smithingTransformRecipes,
+        array $smithingTrimRecipes,
         array $containerMixes,
         array $potionMixes,
+        array $containerMixesByInputAndReagent,
+        array $potionMixesByInputAndReagent,
         private RecipeCoverage $coverage,
     ) {
         $this->recipes = $recipes;
@@ -75,8 +110,15 @@ final readonly class RecipeRegistry
         $this->deprecatedRecipes = $deprecatedRecipes;
         $this->byIdentifier = $byIdentifier;
         $this->byUuid = $byUuid;
+        $this->byStation = $byStation;
+        $this->byStationAndExactInput = $byStationAndExactInput;
+        $this->byStationAndInputTag = $byStationAndInputTag;
+        $this->smithingTransformRecipes = $smithingTransformRecipes;
+        $this->smithingTrimRecipes = $smithingTrimRecipes;
         $this->containerMixes = $containerMixes;
         $this->potionMixes = $potionMixes;
+        $this->containerMixesByInputAndReagent = $containerMixesByInputAndReagent;
+        $this->potionMixesByInputAndReagent = $potionMixesByInputAndReagent;
     }
 
     public static function fromJson(string $json, ItemNetworkRegistry $items): self
@@ -109,6 +151,11 @@ final readonly class RecipeRegistry
         $deprecated = [];
         $byIdentifier = [];
         $byUuid = [];
+        $recipesByStation = [];
+        $byStationAndExactInput = [];
+        $byStationAndInputTag = [];
+        $smithingTransformRecipes = [];
+        $smithingTrimRecipes = [];
         $identities = [];
         $byType = [];
         $byStation = [];
@@ -141,6 +188,23 @@ final readonly class RecipeRegistry
             $station = $recipe->station();
             if ($station !== null) {
                 $byStation[$station->value] = ($byStation[$station->value] ?? 0) + 1;
+                $recipesByStation[$station->value][] = $recipe;
+                foreach ($recipe->ingredients() as $ingredient) {
+                    $input = $ingredient->itemIdentifier() ?? $ingredient->itemTag();
+                    if ($input === null) {
+                        throw new RuntimeException('Recipe ingredient has no indexed identity.');
+                    }
+                    if ($ingredient->type() === RecipeIngredientType::ITEM) {
+                        $byStationAndExactInput[$station->value][$input][$recipe->sourceIndex()] = $recipe;
+                    } else {
+                        $byStationAndInputTag[$station->value][$input][$recipe->sourceIndex()] = $recipe;
+                    }
+                }
+            }
+            if ($recipe instanceof SmithingTransformRecipe) {
+                $smithingTransformRecipes[] = $recipe;
+            } elseif ($recipe instanceof SmithingTrimRecipe) {
+                $smithingTrimRecipes[] = $recipe;
             }
             if ($station === RecipeStation::CRAFTING_TABLE) {
                 $crafting[] = $recipe;
@@ -184,7 +248,55 @@ final readonly class RecipeRegistry
             $byStation,
         );
 
-        return new self($recipes, $crafting, $workstations, $complex, $deprecated, $byIdentifier, $byUuid, $containerMixes, $potionMixes, $coverage);
+        $exactInputIndex = [];
+        foreach ($byStationAndExactInput as $stationValue => $inputs) {
+            foreach ($inputs as $input => $indexed) {
+                $exactInputIndex[$stationValue][$input] = array_values($indexed);
+            }
+        }
+        $inputTagIndex = [];
+        foreach ($byStationAndInputTag as $stationValue => $inputs) {
+            foreach ($inputs as $input => $indexed) {
+                $inputTagIndex[$stationValue][$input] = array_values($indexed);
+            }
+        }
+
+        $containerMixIndex = [];
+        foreach ($containerMixes as $mix) {
+            $key = self::mixKey($mix->inputItemIdentifier(), 0, $mix->reagentItemIdentifier(), 0);
+            if (isset($containerMixIndex[$key])) {
+                throw new RuntimeException('Container mixes contain a duplicate input and reagent identity.');
+            }
+            $containerMixIndex[$key] = $mix;
+        }
+        $potionMixIndex = [];
+        foreach ($potionMixes as $mix) {
+            $key = self::mixKey($mix->inputItemIdentifier(), $mix->inputMetadata(), $mix->reagentItemIdentifier(), $mix->reagentMetadata());
+            if (isset($potionMixIndex[$key])) {
+                throw new RuntimeException('Potion mixes contain a duplicate input and reagent identity.');
+            }
+            $potionMixIndex[$key] = $mix;
+        }
+
+        return new self(
+            $recipes,
+            $crafting,
+            $workstations,
+            $complex,
+            $deprecated,
+            $byIdentifier,
+            $byUuid,
+            $recipesByStation,
+            $exactInputIndex,
+            $inputTagIndex,
+            $smithingTransformRecipes,
+            $smithingTrimRecipes,
+            $containerMixes,
+            $potionMixes,
+            $containerMixIndex,
+            $potionMixIndex,
+            $coverage,
+        );
     }
 
     /** @return list<RecipeDefinition> */
@@ -219,6 +331,55 @@ final readonly class RecipeRegistry
     public function complexRecipe(string $uuid): ComplexRecipe
     {
         return $this->byUuid[strtolower($uuid)] ?? throw new InvalidArgumentException('Complex recipe UUID is not admitted.');
+    }
+
+    /** @return list<RecipeDefinition> */
+    public function recipesForStation(RecipeStation $station): array
+    {
+        return $this->byStation[$station->value] ?? [];
+    }
+
+    /** @return list<RecipeDefinition> */
+    public function recipesForExactInput(RecipeStation $station, string $itemIdentifier): array
+    {
+        self::assertCanonicalIdentifier($itemIdentifier, 'item identifier');
+        return $this->byStationAndExactInput[$station->value][$itemIdentifier] ?? [];
+    }
+
+    /** @return list<RecipeDefinition> */
+    public function recipesForInputTag(RecipeStation $station, string $itemTag): array
+    {
+        self::assertCanonicalIdentifier($itemTag, 'item tag');
+        return $this->byStationAndInputTag[$station->value][$itemTag] ?? [];
+    }
+
+    /** @return list<SmithingTransformRecipe> */
+    public function smithingTransformRecipes(): array
+    {
+        return $this->smithingTransformRecipes;
+    }
+
+    /** @return list<SmithingTrimRecipe> */
+    public function smithingTrimRecipes(): array
+    {
+        return $this->smithingTrimRecipes;
+    }
+
+    public function containerMix(string $inputItemIdentifier, string $reagentItemIdentifier): ?ContainerMix
+    {
+        self::assertCanonicalIdentifier($inputItemIdentifier, 'input item identifier');
+        self::assertCanonicalIdentifier($reagentItemIdentifier, 'reagent item identifier');
+        return $this->containerMixesByInputAndReagent[self::mixKey($inputItemIdentifier, 0, $reagentItemIdentifier, 0)] ?? null;
+    }
+
+    public function potionMix(string $inputItemIdentifier, int $inputMetadata, string $reagentItemIdentifier, int $reagentMetadata): ?PotionMix
+    {
+        self::assertCanonicalIdentifier($inputItemIdentifier, 'input item identifier');
+        self::assertCanonicalIdentifier($reagentItemIdentifier, 'reagent item identifier');
+        if ($inputMetadata < 0 || $inputMetadata > 32_767 || $reagentMetadata < 0 || $reagentMetadata > 32_767) {
+            throw new InvalidArgumentException('Potion metadata must be between 0 and 32767.');
+        }
+        return $this->potionMixesByInputAndReagent[self::mixKey($inputItemIdentifier, $inputMetadata, $reagentItemIdentifier, $reagentMetadata)] ?? null;
     }
 
     /** @param array<array-key, mixed> $data */
@@ -483,6 +644,18 @@ final readonly class RecipeRegistry
             throw new RuntimeException(sprintf('Recipe has an invalid %s at source index %d.', $label, $index));
         }
         return $value;
+    }
+
+    private static function assertCanonicalIdentifier(string $identifier, string $label): void
+    {
+        if ($identifier === '' || strlen($identifier) > 256 || preg_match('/^[a-z0-9_.-]+:[a-z0-9_.-]+$/D', $identifier) !== 1) {
+            throw new InvalidArgumentException(sprintf('Recipe lookup %s must be canonical.', $label));
+        }
+    }
+
+    private static function mixKey(string $inputIdentifier, int $inputMetadata, string $reagentIdentifier, int $reagentMetadata): string
+    {
+        return implode("\0", [$inputIdentifier, (string) $inputMetadata, $reagentIdentifier, (string) $reagentMetadata]);
     }
 
     private static function requireItem(ItemNetworkRegistry $items, string $identifier, int $index): void

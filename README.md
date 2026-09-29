@@ -6,7 +6,7 @@ These datasets are used by [Bedriox](https://github.com/Bedriox/Bedriox), the Be
 
 Each release is immutable and identified by its Bedrock game version and network protocol. Manifests bind every published file to its exact size and SHA-256 digest.
 
-The PHP package also exposes bounded, read-only registry views used by the Bedriox server. These views verify the active manifest before interpreting blocks, items, entities, creative inventory, crafting, potion, and container-mix data.
+The PHP package also exposes bounded, read-only registry views used by the Bedriox server. These views verify the active manifest before interpreting blocks, items, entities, creative inventory, crafting, processing-station recipes, potion, and container-mix data.
 
 ## Included datasets
 

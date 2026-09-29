@@ -10,6 +10,7 @@ use Bedriox\Data\ComplexRecipe;
 use Bedriox\Data\ContainerMix;
 use Bedriox\Data\ItemNetworkRegistry;
 use Bedriox\Data\RecipeIngredientType;
+use Bedriox\Data\RecipeDefinition;
 use Bedriox\Data\RecipeRegistry;
 use Bedriox\Data\RecipeStation;
 use Bedriox\Data\RecipeType;
@@ -20,6 +21,7 @@ use Bedriox\Data\SmithingTransformRecipe;
 use Bedriox\Data\SmithingTrimRecipe;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use InvalidArgumentException;
 use RuntimeException;
 
 final class RecipeRegistryTest extends TestCase
@@ -127,6 +129,59 @@ final class RecipeRegistryTest extends TestCase
         self::assertSame(0, $registry->potionMixes()[0]->reagentMetadata());
         self::assertSame('minecraft:potion', $registry->potionMixes()[0]->outputItemIdentifier());
         self::assertSame(43, $registry->potionMixes()[0]->outputMetadata());
+    }
+
+    public function testBundledRegistryProvidesIndexedProcessingRecipeLookups(): void
+    {
+        $registry = BedrockDataSet::bundled()->recipeRegistry();
+
+        self::assertCount(134, $registry->recipesForStation(RecipeStation::FURNACE));
+        self::assertCount(62, $registry->recipesForStation(RecipeStation::BLAST_FURNACE));
+        self::assertCount(9, $registry->recipesForStation(RecipeStation::SMOKER));
+        self::assertCount(9, $registry->recipesForStation(RecipeStation::CAMPFIRE));
+        self::assertCount(9, $registry->recipesForStation(RecipeStation::SOUL_CAMPFIRE));
+        self::assertCount(354, $registry->recipesForStation(RecipeStation::STONECUTTER));
+        self::assertCount(2, $registry->recipesForStation(RecipeStation::CARTOGRAPHY_TABLE));
+        self::assertCount(13, $registry->recipesForStation(RecipeStation::SMITHING_TABLE));
+
+        $smokerBeef = $registry->recipesForExactInput(RecipeStation::SMOKER, 'minecraft:beef');
+        self::assertCount(1, $smokerBeef);
+        self::assertSame('minecraft:cooked_beef', $smokerBeef[0]->outputs()[0]->itemIdentifier());
+
+        $stonecutting = $registry->recipesForExactInput(RecipeStation::STONECUTTER, 'minecraft:cobbled_deepslate');
+        self::assertGreaterThan(1, count($stonecutting));
+        self::assertContains('minecraft:chiseled_deepslate', array_map(
+            static fn(RecipeDefinition $recipe): string => $recipe->outputs()[0]->itemIdentifier(),
+            $stonecutting,
+        ));
+
+        self::assertSame([], $registry->recipesForExactInput(RecipeStation::FURNACE, 'minecraft:compass'));
+        self::assertSame([], $registry->recipesForInputTag(RecipeStation::FURNACE, 'minecraft:logs'));
+        self::assertCount(12, $registry->smithingTransformRecipes());
+        self::assertCount(1, $registry->smithingTrimRecipes());
+    }
+
+    public function testBundledRegistryProvidesConstantTimeBrewingLookups(): void
+    {
+        $registry = BedrockDataSet::bundled()->recipeRegistry();
+
+        $container = $registry->containerMix('minecraft:potion', 'minecraft:gunpowder');
+        self::assertNotNull($container);
+        self::assertSame('minecraft:splash_potion', $container->outputItemIdentifier());
+        self::assertNull($registry->containerMix('minecraft:potion', 'minecraft:stone'));
+
+        $potion = $registry->potionMix('minecraft:potion', 4, 'minecraft:breeze_rod', 0);
+        self::assertNotNull($potion);
+        self::assertSame(43, $potion->outputMetadata());
+        self::assertNull($registry->potionMix('minecraft:potion', 4, 'minecraft:compass', 0));
+    }
+
+    public function testProcessingLookupsRejectNonCanonicalKeys(): void
+    {
+        $registry = BedrockDataSet::bundled()->recipeRegistry();
+
+        $this->expectException(InvalidArgumentException::class);
+        $registry->recipesForExactInput(RecipeStation::FURNACE, 'not canonical');
     }
 
     /** @param array<string, mixed> $document */

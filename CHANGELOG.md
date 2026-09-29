@@ -1,5 +1,6 @@
 # Changelog
 
+- Added source-order-preserving station and ingredient recipe indexes, typed smithing collections, and direct brewing-transition lookups.
 - Interpret block network identities from admitted explicit hashes, verify them against canonical state NBT, and stop deriving wire identity from palette position.
 
 ## 1.26.52 / protocol 2193 — 2026-09-26
