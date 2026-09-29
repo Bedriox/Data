@@ -16,28 +16,38 @@ final readonly class NetworkBlockStateRegistry
     /** @var array<string, int> */
     private array $runtimeIdsByKey;
 
-    /** @param list<CanonicalBlockState> $states */
-    private function __construct(array $states)
+    /** @var array<int, CanonicalBlockState> */
+    private array $statesByRuntimeId;
+
+    /** @param list<array{state: CanonicalBlockState, network_id: int}> $entries */
+    private function __construct(array $entries)
     {
-        if ($states === [] || count($states) > 100_000) {
+        if ($entries === [] || count($entries) > 100_000) {
             throw new RuntimeException('Network block-state palette is empty or oversized.');
         }
+        $states = [];
         $runtimeIdsByKey = [];
-        foreach ($states as $networkRuntimeId => $state) {
+        $statesByRuntimeId = [];
+        foreach ($entries as $entry) {
+            $state = $entry['state'];
+            $networkRuntimeId = $entry['network_id'];
             $key = $state->canonicalKey();
-            if (isset($runtimeIdsByKey[$key])) {
-                throw new RuntimeException('Network block-state palette contains a duplicate canonical state.');
+            if (isset($runtimeIdsByKey[$key]) || isset($statesByRuntimeId[$networkRuntimeId])) {
+                throw new RuntimeException('Network block-state palette contains a duplicate canonical state or network ID.');
             }
+            $states[] = $state;
             $runtimeIdsByKey[$key] = $networkRuntimeId;
+            $statesByRuntimeId[$networkRuntimeId] = $state;
         }
         $this->states = $states;
         $this->runtimeIdsByKey = $runtimeIdsByKey;
+        $this->statesByRuntimeId = $statesByRuntimeId;
     }
 
     /** @internal Construct only from a hash-verified admitted ordered palette. */
     public static function fromAdmittedPalette(string $compressedNbt): self
     {
-        return new self(BigEndianNbtRegistry::blockPalette($compressedNbt));
+        return new self(BigEndianNbtRegistry::networkBlockPalette($compressedNbt));
     }
 
     /** @return list<CanonicalBlockState> */
@@ -54,7 +64,19 @@ final readonly class NetworkBlockStateRegistry
 
     public function stateForNetworkRuntimeId(int $networkRuntimeId): CanonicalBlockState
     {
-        return $this->states[$networkRuntimeId]
+        $networkRuntimeId = self::normalizeNetworkRuntimeId($networkRuntimeId);
+        return $this->statesByRuntimeId[$networkRuntimeId]
             ?? throw new InvalidArgumentException('Network runtime ID is outside the admitted block-state palette.');
+    }
+
+    private static function normalizeNetworkRuntimeId(int $networkRuntimeId): int
+    {
+        if ($networkRuntimeId >= -0x8000_0000 && $networkRuntimeId <= 0x7fff_ffff) {
+            return $networkRuntimeId;
+        }
+        if ($networkRuntimeId >= 0x8000_0000 && $networkRuntimeId <= 0xffff_ffff) {
+            return $networkRuntimeId - 0x1_0000_0000;
+        }
+        throw new InvalidArgumentException('Network runtime ID must fit signed or unsigned 32-bit representation.');
     }
 }

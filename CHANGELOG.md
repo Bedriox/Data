@@ -1,5 +1,7 @@
 # Changelog
 
+- Interpret block network identities from admitted explicit hashes, verify them against canonical state NBT, and stop deriving wire identity from palette position.
+
 ## 1.26.52 / protocol 2193 — 2026-09-26
 
 - Published the first dataset generated, verified, and reviewed by the Bedriox Team.

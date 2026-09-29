@@ -25,7 +25,12 @@ final class AdmittedRegistryDataSetTest extends TestCase
         foreach (AdmittedRegistryDataSet::artifactNames() as $name) {
             self::assertNotSame('', $data->artifact($name));
         }
-        self::assertSame(['air' => 17_013, 'bedrock' => 17_889, 'dirt' => 13_444, 'grass_block' => 14_932], $data->fixedFlatRuntimeIds());
+        self::assertSame([
+            'air' => -604_749_536,
+            'bedrock' => -173_245_189,
+            'dirt' => -2_108_756_090,
+            'grass_block' => -567_203_660,
+        ], $data->fixedFlatRuntimeIds());
         self::assertCount(2_076, $data->requiredItems());
         self::assertCount(89, $data->biomeDefinitions());
         self::assertSame(1, $data->plainsBiomeRuntimeId());

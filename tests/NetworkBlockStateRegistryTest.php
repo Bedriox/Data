@@ -16,11 +16,22 @@ final class NetworkBlockStateRegistryTest extends TestCase
     public function testEquivalentCanonicalStateResolvesIndependentOfPropertyOrder(): void
     {
         $registry = AdmittedRegistryDataSet::bundled()->blockStateRegistry();
-        $state = $registry->stateForNetworkRuntimeId(0);
+        $state = CanonicalBlockState::from('minecraft:bedrock', ['infiniburn_bit' => 0]);
         $properties = array_reverse($state->properties(), true);
 
-        self::assertSame(0, $registry->networkRuntimeId(CanonicalBlockState::from($state->identifier(), $properties)));
+        self::assertSame(-173_245_189, $registry->networkRuntimeId(CanonicalBlockState::from($state->identifier(), $properties)));
         self::assertSame($state->canonicalKey(), CanonicalBlockState::from($state->identifier(), $properties)->canonicalKey());
+    }
+
+    public function testExplicitSignedHashesAreUniqueAndAcceptUnsignedLookupProjection(): void
+    {
+        $registry = AdmittedRegistryDataSet::bundled()->blockStateRegistry();
+        $runtimeIds = array_map($registry->networkRuntimeId(...), $registry->states());
+
+        self::assertCount(22_079, $runtimeIds);
+        self::assertCount(22_079, array_unique($runtimeIds, SORT_REGULAR));
+        self::assertSame(-604_749_536, $registry->networkRuntimeId(CanonicalBlockState::from('minecraft:air')));
+        self::assertSame('minecraft:air', $registry->stateForNetworkRuntimeId(3_690_217_760)->identifier());
     }
 
     /** @param array<array-key, mixed> $properties */
@@ -48,8 +59,8 @@ final class NetworkBlockStateRegistryTest extends TestCase
         $registry = AdmittedRegistryDataSet::bundled()->blockStateRegistry();
         foreach ([
             static fn() => $registry->networkRuntimeId(CanonicalBlockState::from('bedriox:not_admitted')),
-            static fn() => $registry->stateForNetworkRuntimeId(-1),
-            static fn() => $registry->stateForNetworkRuntimeId(count($registry->states())),
+            static fn() => $registry->stateForNetworkRuntimeId(0),
+            static fn() => $registry->stateForNetworkRuntimeId(0x1_0000_0000),
         ] as $operation) {
             try {
                 $operation();
@@ -75,5 +86,20 @@ final class NetworkBlockStateRegistryTest extends TestCase
                 self::addToAssertionCount(1);
             }
         }
+    }
+
+    public function testMismatchedExplicitNetworkHashFailsClosed(): void
+    {
+        $decoded = gzdecode(AdmittedRegistryDataSet::bundled()->artifact('block_palette'));
+        self::assertIsString($decoded);
+        $offset = strpos($decoded, pack('N', 973_836_165));
+        self::assertIsInt($offset);
+        $decoded = substr_replace($decoded, pack('N', 973_836_166), $offset, 4);
+        $corrupted = gzencode($decoded, 9);
+        self::assertIsString($corrupted);
+
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('does not match canonical state hash');
+        \Bedriox\Data\NetworkBlockStateRegistry::fromAdmittedPalette($corrupted);
     }
 }

@@ -23,19 +23,19 @@ final class BedrockDataSetTest extends TestCase
         self::assertSame('1.26.52', BedrockVersion::QUALIFIED_CLIENT_VERSION);
         self::assertSame([2_193], BedrockVersion::SUPPORTED_PROTOCOLS);
         self::assertSame([
-            'air' => 17_013,
-            'bedrock' => 17_889,
-            'dirt' => 13_444,
-            'grass_block' => 14_932,
+            'air' => -604_749_536,
+            'bedrock' => -173_245_189,
+            'dirt' => -2_108_756_090,
+            'grass_block' => -567_203_660,
         ], $data->fixedFlatRuntimeIds());
         self::assertSame($source->fixedFlatRuntimeIds(), $data->fixedFlatRuntimeIds());
         $blocks = $data->blockStateRegistry();
         self::assertCount(22_079, $blocks->states());
         foreach ([
-            17_013 => ['minecraft:air', []],
-            17_889 => ['minecraft:bedrock', ['infiniburn_bit' => 0]],
-            13_444 => ['minecraft:dirt', []],
-            14_932 => ['minecraft:grass_block', []],
+            -604_749_536 => ['minecraft:air', []],
+            -173_245_189 => ['minecraft:bedrock', ['infiniburn_bit' => 0]],
+            -2_108_756_090 => ['minecraft:dirt', []],
+            -567_203_660 => ['minecraft:grass_block', []],
         ] as $runtimeId => [$identifier, $properties]) {
             $state = $blocks->stateForNetworkRuntimeId($runtimeId);
             self::assertSame($identifier, $state->identifier());

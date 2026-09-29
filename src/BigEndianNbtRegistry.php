@@ -22,6 +22,15 @@ final class BigEndianNbtRegistry
     /** @return list<CanonicalBlockState> */
     public static function blockPalette(string $compressed): array
     {
+        return array_map(
+            static fn(array $entry): CanonicalBlockState => $entry['state'],
+            self::networkBlockPalette($compressed),
+        );
+    }
+
+    /** @return list<array{state: CanonicalBlockState, network_id: int}> */
+    public static function networkBlockPalette(string $compressed): array
+    {
         $reader = new self(self::inflate($compressed, 8_000_000));
         if ($reader->byte() !== 10) {
             throw new RuntimeException('Block palette NBT root is not a compound.');
@@ -44,21 +53,8 @@ final class BigEndianNbtRegistry
             }
             $count = $reader->length();
             $states = [];
-            for ($networkRuntimeId = 0; $networkRuntimeId < $count; ++$networkRuntimeId) {
-                $block = $reader->compound(2);
-                $identifier = $block['name'] ?? null;
-                $properties = $block['states'] ?? null;
-                if (!is_string($identifier) || !is_array($properties)) {
-                    throw new RuntimeException('Block palette entry is missing its name or states.');
-                }
-                $canonicalProperties = [];
-                foreach ($properties as $propertyName => $propertyValue) {
-                    if (!is_string($propertyName) || (!is_int($propertyValue) && !is_string($propertyValue))) {
-                        throw new RuntimeException('Block palette entry contains a non-canonical property.');
-                    }
-                    $canonicalProperties[$propertyName] = $propertyValue;
-                }
-                $states[] = CanonicalBlockState::from($identifier, $canonicalProperties);
+            for ($index = 0; $index < $count; ++$index) {
+                $states[] = $reader->networkBlock(2);
             }
         }
         $reader->end();
@@ -107,9 +103,11 @@ final class BigEndianNbtRegistry
     /** @return array{air: int, bedrock: int, dirt: int, grass_block: int} */
     public static function fixedFlatRuntimeIds(string $compressed): array
     {
-        $states = self::blockPalette($compressed);
+        $states = self::networkBlockPalette($compressed);
         $matches = [];
-        foreach ($states as $runtimeId => $state) {
+        foreach ($states as $entry) {
+            $state = $entry['state'];
+            $runtimeId = $entry['network_id'];
             $properties = $state->properties();
             $key = match ($state->identifier()) {
                 'minecraft:air' => $properties === [] ? 'air' : null,
@@ -415,6 +413,102 @@ final class BigEndianNbtRegistry
         } catch (\InvalidArgumentException $error) {
             throw new RuntimeException('Block palette entry contains an invalid persistent state.', previous: $error);
         }
+    }
+
+    /** @return array{state: CanonicalBlockState, network_id: int} */
+    private function networkBlock(int $depth): array
+    {
+        $this->depth($depth);
+        $identifier = null;
+        $networkId = null;
+        $properties = null;
+        $encodedProperties = null;
+        $names = [];
+        while (($type = $this->byte()) !== 0) {
+            if (++$this->entries > self::MAX_ENTRIES) {
+                throw new RuntimeException('NBT exceeds its entry limit.');
+            }
+            $name = $this->string();
+            if (isset($names[$name])) {
+                throw new RuntimeException('Block palette entry contains a duplicate field.');
+            }
+            $names[$name] = true;
+            if ($name === 'name' && $type === 8) {
+                $identifier = $this->string();
+            } elseif ($name === 'network_id' && $type === 3) {
+                $networkId = $this->signed($this->read(4));
+            } elseif ($name === 'states' && $type === 10) {
+                [$properties, $encodedProperties] = $this->networkProperties($depth + 1);
+            } else {
+                $this->skipPayload($type, $depth + 1);
+            }
+        }
+        if (!is_string($identifier) || !is_int($networkId) || !is_array($properties) || !is_string($encodedProperties)) {
+            throw new RuntimeException('Block palette entry is missing its name, states, or signed network ID.');
+        }
+        $expected = self::signedFNV1a32(
+            "\x0a\x00\x00"
+            . "\x08" . self::littleEndianString('name') . self::littleEndianString($identifier)
+            . "\x0a" . self::littleEndianString('states') . $encodedProperties
+            . "\x00",
+        );
+        $isUnknownSentinel = $identifier === 'minecraft:unknown' && $properties === [] && $networkId === -2;
+        if (!$isUnknownSentinel && $networkId !== $expected) {
+            throw new RuntimeException("Block palette entry network ID {$networkId} does not match canonical state hash {$expected} for {$identifier}.");
+        }
+        try {
+            $state = CanonicalBlockState::from($identifier, $properties);
+        } catch (\InvalidArgumentException $error) {
+            throw new RuntimeException('Block palette entry contains an invalid canonical state.', previous: $error);
+        }
+        return ['state' => $state, 'network_id' => $networkId];
+    }
+
+    /** @return array{array<string, int|string>, string} */
+    private function networkProperties(int $depth): array
+    {
+        $this->depth($depth);
+        $properties = [];
+        $encoded = '';
+        while (($type = $this->byte()) !== 0) {
+            if (++$this->entries > self::MAX_ENTRIES || count($properties) >= 128) {
+                throw new RuntimeException('Block palette states compound is oversized.');
+            }
+            $name = $this->string();
+            if (array_key_exists($name, $properties) || !in_array($type, [1, 3, 8], true)) {
+                throw new RuntimeException('Block palette state contains a duplicate or unsupported property.');
+            }
+            $value = match ($type) {
+                1 => ($byte = $this->byte()) >= 128 ? $byte - 256 : $byte,
+                3 => $this->signed($this->read(4)),
+                8 => $this->string(),
+            };
+            $properties[$name] = $value;
+            $encoded .= chr($type) . self::littleEndianString($name);
+            $encoded .= match ($type) {
+                1 => chr($value & 0xff),
+                3 => pack('V', $value & 0xffff_ffff),
+                8 => self::littleEndianString($value),
+            };
+        }
+        return [$properties, $encoded . "\x00"];
+    }
+
+    private static function littleEndianString(string $value): string
+    {
+        if (strlen($value) > self::MAX_STRING_BYTES || preg_match('//u', $value) !== 1) {
+            throw new RuntimeException('Block palette canonical NBT string is invalid or oversized.');
+        }
+        return pack('v', strlen($value)) . $value;
+    }
+
+    private static function signedFNV1a32(string $bytes): int
+    {
+        $hash = 0x811c9dc5;
+        for ($offset = 0, $length = strlen($bytes); $offset < $length; ++$offset) {
+            $hash = (($hash ^ ord($bytes[$offset])) * 0x01000193) & 0xffff_ffff;
+        }
+        return $hash > 0x7fff_ffff ? $hash - 0x1_0000_0000 : $hash;
     }
 
     /** @return list<PersistentBlockStateProperty> */
