@@ -6,6 +6,8 @@ These datasets are used by [Bedriox](https://github.com/Bedriox/Bedriox), the Be
 
 Each release is immutable and identified by its Bedrock game version and network protocol. Manifests bind every published file to its exact size and SHA-256 digest.
 
+The PHP package also exposes bounded, read-only registry views used by the Bedriox server. These views verify the active manifest before interpreting blocks, items, entities, creative inventory, crafting, potion, and container-mix data.
+
 ## Included datasets
 
 - Runtime item states and item components
@@ -39,6 +41,6 @@ Bedriox's copyright and database rights in the dataset collection, selection, ar
 
 > Bedriox — https://github.com/Bedriox
 
-The admission tool source code is licensed separately under [GPL-3.0-only](LICENSE-CODE). See [ATTRIBUTION.md](ATTRIBUTION.md) and [NOTICE](NOTICE) for scope and third-party-rights information.
+The PHP source code is licensed separately under [GPL-3.0-only](LICENSE-CODE). See [ATTRIBUTION.md](ATTRIBUTION.md) and [NOTICE](NOTICE) for scope and third-party-rights information.
 
 Minecraft and related names and identifiers are trademarks or property of Microsoft Corporation and Mojang Studios. Bedriox is an independent project and is not affiliated with or endorsed by Microsoft or Mojang.

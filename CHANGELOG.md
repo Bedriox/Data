@@ -7,3 +7,4 @@
 - Added 22,079 canonical block states and 232 deduplicated collision shapes.
 - Added biome, entity, actor-property, data-driven block, jigsaw, item-component, and legacy compatibility datasets.
 - Bound all 17 artifacts to an approved schema-2 manifest and exact SHA-256 records.
+- Added bounded, hash-verified runtime views for the admitted block, item, entity, creative, crafting, potion, and container-mix registries.

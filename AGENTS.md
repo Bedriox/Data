@@ -13,8 +13,8 @@ The public contract is the schema-2 manifest under `manifests/` and its correspo
 - `artifacts/bedrock-VERSION-protocol-PROTOCOL/` contains the exact admitted payload.
 - `manifests/bedrock-VERSION-protocol-PROTOCOL-schema-2.json` binds source, generator, approval, sizes, and SHA-256 values.
 - `tools/admit-dataset.php` performs read-only validation or applies a new approved bundle.
-- `src/` contains only the admission boundary and its immutable value objects.
-- `tests/` covers admission success, rejection, containment, hashes, approval, namespace separation, and cleanup.
+- `src/` contains the admission boundary, immutable value objects, and bounded read-only registry views over the active admitted dataset.
+- `tests/` covers admission success, rejection, containment, hashes, approval, namespace separation, cleanup, and runtime registry interpretation.
 
 ## Release procedure
 

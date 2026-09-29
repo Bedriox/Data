@@ -1,6 +1,6 @@
 {
     "name": "bedriox/data",
-    "description": "Versioned Minecraft: Bedrock Edition datasets for Bedriox.",
+    "description": "Versioned Minecraft: Bedrock Edition datasets and read-only registry views for Bedriox.",
     "type": "project",
     "license": "GPL-3.0-only",
     "homepage": "https://bedriox.com",
