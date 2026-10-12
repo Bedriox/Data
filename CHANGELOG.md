@@ -1,5 +1,6 @@
 # Changelog
 
+- Memoize admitted artifact contents and immutable registry views within each server process so repeated consumers do not re-read, hash, and decode identical data during startup.
 - Added source-order-preserving station and ingredient recipe indexes, typed smithing collections, and direct brewing-transition lookups.
 - Interpret block network identities from admitted explicit hashes, verify them against canonical state NBT, and stop deriving wire identity from palette position.
 

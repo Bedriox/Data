@@ -8,7 +8,7 @@ use InvalidArgumentException;
 use RuntimeException;
 
 /** @internal Immutable, hash-verified access to the pinned registry source artifacts. */
-final readonly class AdmittedRegistryDataSet
+final class AdmittedRegistryDataSet
 {
     /** Canonical vanilla biome runtime IDs used by LevelChunk biome palettes. */
     private const array BIOME_RUNTIME_IDS = [
@@ -105,15 +105,39 @@ final readonly class AdmittedRegistryDataSet
 
     public const int MAX_ARTIFACT_BYTES = 1_000_000;
 
+    /** @var array<string, string> */
+    private array $artifacts = [];
+    /** @var null|array<string, array{runtime_id: int, component_based: bool, version: int, component_nbt?: string}> */
+    private ?array $requiredItemCache = null;
+    private ?ItemNetworkRegistry $itemNetworkRegistryCache = null;
+    private ?RecipeRegistry $recipeRegistryCache = null;
+    private ?CreativeInventoryRegistry $creativeInventoryRegistryCache = null;
+    private ?BlockItemMappingRegistry $blockItemMappingRegistryCache = null;
+    private ?BlockPropertyRegistry $blockPropertyRegistryCache = null;
+    private ?VoxelShapeRegistry $voxelShapeRegistryCache = null;
+    /** @var null|array{air: int, bedrock: int, dirt: int, grass_block: int} */
+    private ?array $fixedFlatRuntimeIdsCache = null;
+    private ?NetworkBlockStateRegistry $blockStateRegistryCache = null;
+    private ?PersistentBlockStateRegistry $persistentBlockStateRegistryCache = null;
+    /** @var null|array<string, string> */
+    private ?array $dataDrivenBlockPropertiesCache = null;
+    /** @var null|list<array{name: string, id: int, temperature: float, downfall: float, foliage_snow: float, depth: float, scale: float, map_water_argb: int, rain: bool, tags: list<string>}> */
+    private ?array $biomeDefinitionsCache = null;
+    private ?string $entityIdentifiersNetworkNbtCache = null;
+    private ?EntityTypeRegistry $entityTypeRegistryCache = null;
+
     private function __construct(
-        private string $rootDirectory,
-        private AdmittedDataManifest $manifest,
-        private ?string $compatibleArtifactDirectory,
+        private readonly string $rootDirectory,
+        private readonly AdmittedDataManifest $manifest,
+        private readonly ?string $compatibleArtifactDirectory,
     ) {}
 
     public static function bundled(): self
     {
-        return new self(dirname(__DIR__), AdmittedDataManifest::bundled(), null);
+        /** @var self|null $bundled */
+        static $bundled = null;
+
+        return $bundled ??= new self(dirname(__DIR__), AdmittedDataManifest::bundled(), null);
     }
 
     public static function fromDirectory(string $directory): self
@@ -136,6 +160,9 @@ final readonly class AdmittedRegistryDataSet
 
     public function artifact(string $name): string
     {
+        if (isset($this->artifacts[$name])) {
+            return $this->artifacts[$name];
+        }
         $record = $this->manifest->artifact($name);
         $relativePath = $this->compatibleArtifactDirectory === null
             ? str_replace('/', DIRECTORY_SEPARATOR, $record->path())
@@ -153,12 +180,15 @@ final readonly class AdmittedRegistryDataSet
         if (!is_string($contents) || strlen($contents) !== $record->size() || hash('sha256', $contents) !== $record->sha256()) {
             throw new RuntimeException('Admitted registry artifact content does not match its admitted SHA-256.');
         }
-        return $contents;
+        return $this->artifacts[$name] = $contents;
     }
 
     /** @return array<string, array{runtime_id: int, component_based: bool, version: int, component_nbt?: string}> */
     public function requiredItems(): array
     {
+        if ($this->requiredItemCache !== null) {
+            return $this->requiredItemCache;
+        }
         $decoded = json_decode($this->artifact('runtime_item_states'), true, 8, JSON_THROW_ON_ERROR);
         if (!is_array($decoded) || !array_is_list($decoded) || count($decoded) > 5_000) {
             throw new RuntimeException('Required-item artifact has an invalid top-level shape or count.');
@@ -194,22 +224,25 @@ final readonly class AdmittedRegistryDataSet
                 throw new RuntimeException('Item-component artifact contains an unknown non-empty item component.');
             }
         }
-        return $items;
+        return $this->requiredItemCache = $items;
     }
 
     public function itemNetworkRegistry(): ItemNetworkRegistry
     {
-        return ItemNetworkRegistry::fromRequiredItems($this->requiredItems());
+        return $this->itemNetworkRegistryCache ??= ItemNetworkRegistry::fromRequiredItems($this->requiredItems());
     }
 
     public function recipeRegistry(): RecipeRegistry
     {
-        return RecipeRegistry::fromJson($this->artifact('recipes'), $this->itemNetworkRegistry());
+        return $this->recipeRegistryCache ??= RecipeRegistry::fromJson(
+            $this->artifact('recipes'),
+            $this->itemNetworkRegistry(),
+        );
     }
 
     public function creativeInventoryRegistry(): CreativeInventoryRegistry
     {
-        return CreativeInventoryRegistry::fromJson(
+        return $this->creativeInventoryRegistryCache ??= CreativeInventoryRegistry::fromJson(
             $this->artifact('creative_inventory'),
             $this->itemNetworkRegistry(),
             $this->blockStateRegistry(),
@@ -218,7 +251,7 @@ final readonly class AdmittedRegistryDataSet
 
     public function blockItemMappingRegistry(): BlockItemMappingRegistry
     {
-        return BlockItemMappingRegistry::fromJson(
+        return $this->blockItemMappingRegistryCache ??= BlockItemMappingRegistry::fromJson(
             $this->artifact('block_item_mappings'),
             $this->itemNetworkRegistry(),
             $this->blockStateRegistry(),
@@ -227,6 +260,9 @@ final readonly class AdmittedRegistryDataSet
 
     public function blockPropertyRegistry(): BlockPropertyRegistry
     {
+        if ($this->blockPropertyRegistryCache !== null) {
+            return $this->blockPropertyRegistryCache;
+        }
         $blocks = $this->blockStateRegistry();
         $registry = BlockPropertyRegistry::fromJson($this->artifact('block_properties'), $blocks);
         $states = $blocks->states();
@@ -238,38 +274,50 @@ final readonly class AdmittedRegistryDataSet
                 throw new RuntimeException('Admitted block-property order does not match the block-state palette.');
             }
         }
-        return $registry;
+        return $this->blockPropertyRegistryCache = $registry;
     }
 
     public function voxelShapeRegistry(): VoxelShapeRegistry
     {
+        if ($this->voxelShapeRegistryCache !== null) {
+            return $this->voxelShapeRegistryCache;
+        }
         $blocks = $this->blockStateRegistry();
         $registry = VoxelShapeRegistry::fromJson($this->artifact('voxel_shapes'), $blocks);
         if ($registry->assignmentCount() !== count($blocks->states())) {
             throw new RuntimeException('Admitted voxel shapes do not assign the complete block-state palette.');
         }
-        return $registry;
+        return $this->voxelShapeRegistryCache = $registry;
     }
 
     /** @return array{air: int, bedrock: int, dirt: int, grass_block: int} */
     public function fixedFlatRuntimeIds(): array
     {
-        return BigEndianNbtRegistry::fixedFlatRuntimeIds($this->artifact('block_palette'));
+        return $this->fixedFlatRuntimeIdsCache ??= BigEndianNbtRegistry::fixedFlatRuntimeIds(
+            $this->artifact('block_palette'),
+        );
     }
 
     public function blockStateRegistry(): NetworkBlockStateRegistry
     {
-        return NetworkBlockStateRegistry::fromAdmittedPalette($this->artifact('block_palette'));
+        return $this->blockStateRegistryCache ??= NetworkBlockStateRegistry::fromAdmittedPalette(
+            $this->artifact('block_palette'),
+        );
     }
 
     public function persistentBlockStateRegistry(): PersistentBlockStateRegistry
     {
-        return PersistentBlockStateRegistry::fromAdmittedPalette($this->artifact('block_palette'));
+        return $this->persistentBlockStateRegistryCache ??= PersistentBlockStateRegistry::fromAdmittedPalette(
+            $this->artifact('block_palette'),
+        );
     }
 
     /** @return array<string, string> identifier => little-endian named compound */
     public function dataDrivenBlockProperties(): array
     {
+        if ($this->dataDrivenBlockPropertiesCache !== null) {
+            return $this->dataDrivenBlockPropertiesCache;
+        }
         $properties = BigEndianNbtRegistry::dataDrivenBlockProperties($this->artifact('data_driven_blocks'));
         if ($properties === [] || count($properties) > 1_024) {
             throw new RuntimeException('Data-driven block-property artifact has an invalid entry count.');
@@ -280,7 +328,7 @@ final readonly class AdmittedRegistryDataSet
             }
             LittleEndianNbtValidator::rootCompound($nbt, 262_144);
         }
-        return $properties;
+        return $this->dataDrivenBlockPropertiesCache = $properties;
     }
 
     /**
@@ -289,6 +337,9 @@ final readonly class AdmittedRegistryDataSet
      */
     public function biomeDefinitions(): array
     {
+        if ($this->biomeDefinitionsCache !== null) {
+            return $this->biomeDefinitionsCache;
+        }
         $decoded = json_decode($this->artifact('biome_definitions'), true, 8, JSON_THROW_ON_ERROR);
         if (!is_array($decoded) || $decoded === [] || count($decoded) > 1_024 || array_is_list($decoded)) {
             throw new RuntimeException('Biome-definition artifact has an invalid top-level shape or count.');
@@ -337,7 +388,7 @@ final readonly class AdmittedRegistryDataSet
             ];
             $names[$name] = true;
         }
-        return $result;
+        return $this->biomeDefinitionsCache = $result;
     }
 
     /** @return array<string, int> canonical biome identifier => LevelChunk runtime ID */
@@ -362,14 +413,17 @@ final readonly class AdmittedRegistryDataSet
 
     public function entityIdentifiersNetworkNbt(): string
     {
+        if ($this->entityIdentifiersNetworkNbtCache !== null) {
+            return $this->entityIdentifiersNetworkNbtCache;
+        }
         $nbt = $this->artifact('entity_identifiers');
         CanonicalBlockStateIndex::validateRootCompound($nbt, 65_536);
-        return $nbt;
+        return $this->entityIdentifiersNetworkNbtCache = $nbt;
     }
 
     public function entityTypeRegistry(): EntityTypeRegistry
     {
-        return EntityTypeRegistry::fromAdmittedArtifacts(
+        return $this->entityTypeRegistryCache ??= EntityTypeRegistry::fromAdmittedArtifacts(
             $this->entityIdentifiersNetworkNbt(),
             $this->artifact('entity_properties'),
             $this->itemNetworkRegistry(),

@@ -13,6 +13,17 @@ use Bedriox\Data\LittleEndianNbtValidator;
 
 final class BedrockDataSetTest extends TestCase
 {
+    public function testBundledImmutableRegistriesAreMemoizedForTheProcess(): void
+    {
+        $first = BedrockDataSet::bundled();
+        $second = BedrockDataSet::bundled();
+
+        self::assertSame($first->blockStateRegistry(), $first->blockStateRegistry());
+        self::assertSame($first->blockStateRegistry(), $second->blockStateRegistry());
+        self::assertSame($first->persistentBlockStateRegistry(), $second->persistentBlockStateRegistry());
+        self::assertSame($first->itemNetworkRegistry(), $second->itemNetworkRegistry());
+    }
+
     public function testActiveBootstrapViewIsLatestOnlyAndSemanticallyCurrent(): void
     {
         $data = BedrockDataSet::bundled();
