@@ -1,6 +1,6 @@
 # Architecture
 
-Bedriox Data is a leaf package: it cannot depend on the server, protocol, or RakNet packages. Consumers read immutable artifacts through typed APIs. Generation is an offline development/release concern and must never download or transform remote inputs during normal server startup.
+Bedriox Data is a leaf package: it cannot depend on the server, protocol, or NetherNet packages. Consumers read immutable artifacts through typed APIs. Generation is an offline development/release concern and must never download or transform remote inputs during normal server startup.
 
 ## Layout
 
