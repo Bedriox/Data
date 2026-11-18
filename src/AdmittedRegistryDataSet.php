@@ -183,17 +183,26 @@ final class AdmittedRegistryDataSet
         return $this->artifacts[$name] = $contents;
     }
 
+    /** Returns one verified parse input without retaining the raw payload beside its parsed registry. */
+    private function consumeArtifact(string $name): string
+    {
+        $contents = $this->artifact($name);
+        unset($this->artifacts[$name]);
+
+        return $contents;
+    }
+
     /** @return array<string, array{runtime_id: int, component_based: bool, version: int, component_nbt?: string}> */
     public function requiredItems(): array
     {
         if ($this->requiredItemCache !== null) {
             return $this->requiredItemCache;
         }
-        $decoded = json_decode($this->artifact('runtime_item_states'), true, 8, JSON_THROW_ON_ERROR);
+        $decoded = json_decode($this->consumeArtifact('runtime_item_states'), true, 8, JSON_THROW_ON_ERROR);
         if (!is_array($decoded) || !array_is_list($decoded) || count($decoded) > 5_000) {
             throw new RuntimeException('Required-item artifact has an invalid top-level shape or count.');
         }
-        $components = BigEndianNbtRegistry::itemComponents($this->artifact('item_components'));
+        $components = BigEndianNbtRegistry::itemComponents($this->consumeArtifact('item_components'));
         $items = [];
         $runtimeIds = [];
         foreach ($decoded as $entry) {
@@ -235,7 +244,7 @@ final class AdmittedRegistryDataSet
     public function recipeRegistry(): RecipeRegistry
     {
         return $this->recipeRegistryCache ??= RecipeRegistry::fromJson(
-            $this->artifact('recipes'),
+            $this->consumeArtifact('recipes'),
             $this->itemNetworkRegistry(),
         );
     }
@@ -243,7 +252,7 @@ final class AdmittedRegistryDataSet
     public function creativeInventoryRegistry(): CreativeInventoryRegistry
     {
         return $this->creativeInventoryRegistryCache ??= CreativeInventoryRegistry::fromJson(
-            $this->artifact('creative_inventory'),
+            $this->consumeArtifact('creative_inventory'),
             $this->itemNetworkRegistry(),
             $this->blockStateRegistry(),
         );
@@ -252,7 +261,7 @@ final class AdmittedRegistryDataSet
     public function blockItemMappingRegistry(): BlockItemMappingRegistry
     {
         return $this->blockItemMappingRegistryCache ??= BlockItemMappingRegistry::fromJson(
-            $this->artifact('block_item_mappings'),
+            $this->consumeArtifact('block_item_mappings'),
             $this->itemNetworkRegistry(),
             $this->blockStateRegistry(),
         );
@@ -264,7 +273,7 @@ final class AdmittedRegistryDataSet
             return $this->blockPropertyRegistryCache;
         }
         $blocks = $this->blockStateRegistry();
-        $registry = BlockPropertyRegistry::fromJson($this->artifact('block_properties'), $blocks);
+        $registry = BlockPropertyRegistry::fromJson($this->consumeArtifact('block_properties'), $blocks);
         $states = $blocks->states();
         if (count($registry->properties()) !== count($states)) {
             throw new RuntimeException('Admitted block properties do not cover the complete block-state palette.');
@@ -283,7 +292,7 @@ final class AdmittedRegistryDataSet
             return $this->voxelShapeRegistryCache;
         }
         $blocks = $this->blockStateRegistry();
-        $registry = VoxelShapeRegistry::fromJson($this->artifact('voxel_shapes'), $blocks);
+        $registry = VoxelShapeRegistry::fromJson($this->consumeArtifact('voxel_shapes'), $blocks);
         if ($registry->assignmentCount() !== count($blocks->states())) {
             throw new RuntimeException('Admitted voxel shapes do not assign the complete block-state palette.');
         }
@@ -294,21 +303,21 @@ final class AdmittedRegistryDataSet
     public function fixedFlatRuntimeIds(): array
     {
         return $this->fixedFlatRuntimeIdsCache ??= BigEndianNbtRegistry::fixedFlatRuntimeIds(
-            $this->artifact('block_palette'),
+            $this->consumeArtifact('block_palette'),
         );
     }
 
     public function blockStateRegistry(): NetworkBlockStateRegistry
     {
         return $this->blockStateRegistryCache ??= NetworkBlockStateRegistry::fromAdmittedPalette(
-            $this->artifact('block_palette'),
+            $this->consumeArtifact('block_palette'),
         );
     }
 
     public function persistentBlockStateRegistry(): PersistentBlockStateRegistry
     {
         return $this->persistentBlockStateRegistryCache ??= PersistentBlockStateRegistry::fromAdmittedPalette(
-            $this->artifact('block_palette'),
+            $this->consumeArtifact('block_palette'),
         );
     }
 
@@ -318,7 +327,7 @@ final class AdmittedRegistryDataSet
         if ($this->dataDrivenBlockPropertiesCache !== null) {
             return $this->dataDrivenBlockPropertiesCache;
         }
-        $properties = BigEndianNbtRegistry::dataDrivenBlockProperties($this->artifact('data_driven_blocks'));
+        $properties = BigEndianNbtRegistry::dataDrivenBlockProperties($this->consumeArtifact('data_driven_blocks'));
         if ($properties === [] || count($properties) > 1_024) {
             throw new RuntimeException('Data-driven block-property artifact has an invalid entry count.');
         }
@@ -340,7 +349,7 @@ final class AdmittedRegistryDataSet
         if ($this->biomeDefinitionsCache !== null) {
             return $this->biomeDefinitionsCache;
         }
-        $decoded = json_decode($this->artifact('biome_definitions'), true, 8, JSON_THROW_ON_ERROR);
+        $decoded = json_decode($this->consumeArtifact('biome_definitions'), true, 8, JSON_THROW_ON_ERROR);
         if (!is_array($decoded) || $decoded === [] || count($decoded) > 1_024 || array_is_list($decoded)) {
             throw new RuntimeException('Biome-definition artifact has an invalid top-level shape or count.');
         }
@@ -425,7 +434,7 @@ final class AdmittedRegistryDataSet
     {
         return $this->entityTypeRegistryCache ??= EntityTypeRegistry::fromAdmittedArtifacts(
             $this->entityIdentifiersNetworkNbt(),
-            $this->artifact('entity_properties'),
+            $this->consumeArtifact('entity_properties'),
             $this->itemNetworkRegistry(),
         );
     }

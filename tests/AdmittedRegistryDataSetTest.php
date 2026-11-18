@@ -95,6 +95,28 @@ final class AdmittedRegistryDataSetTest extends TestCase
         }
     }
 
+    public function testParsedRegistryDoesNotRetainItsRawArtifact(): void
+    {
+        $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'bedriox-data-consume-' . bin2hex(random_bytes(8));
+        self::assertTrue(mkdir($directory));
+        $path = $directory . DIRECTORY_SEPARATOR . 'biome_definitions.json';
+        $source = dirname(__DIR__) . '/artifacts/bedrock-1.26.52-protocol-2193/biome_definitions.json';
+        try {
+            self::assertTrue(copy($source, $path));
+            $data = AdmittedRegistryDataSet::fromDirectory($directory);
+            $original = $data->artifact('biome_definitions');
+            self::assertCount(89, $data->biomeDefinitions());
+
+            $changed = ($original[0] === '{' ? '[' : '{') . substr($original, 1);
+            self::assertSame(strlen($original), file_put_contents($path, $changed));
+            $this->expectException(RuntimeException::class);
+            $data->artifact('biome_definitions');
+        } finally {
+            @unlink($path);
+            @rmdir($directory);
+        }
+    }
+
     public function testSymlinkedArtifactIsRejectedWhenPlatformSupportsIt(): void
     {
         $directory = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'bedriox-data-link-' . bin2hex(random_bytes(8));
